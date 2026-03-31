@@ -50,6 +50,8 @@ def get_cheapest_fruit():
     return _fruit_response(cheapest_id, FRUITS[cheapest_id])
 
 
+
+
 @app.get("/fruits")
 def list_fruits(
         in_season: bool = Query(None, description="Filter by in_season (true/false)"),
