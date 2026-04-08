@@ -39,47 +39,46 @@ jobs:
         run: python -m pytest test_integration.py
       - name: Stop container
         run: docker rm -f fruits-api-test
+  release:
+    name: Tag & push to GHCR
+    needs: integration-tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
 
-    release:
-      name: Tag & push to GHCR
-      needs: integration-test
-      runs-on: ubuntu-latest
-      permissions:
-        contents: read
-        packages: write
-      steps:
-        - uses: actions/checkout@v4
+      - name: Lowercase image name
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
 
-        - name: Lowercase image name
-          run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
+      - name: Extract version from main.py
+        id: version
+        run: |
+          VERSION=$(python -c "import re; m=re.search(r'version=\"([^\"]+)\"', open('main.py').read()); print(m.group(1))")
+          echo "semver=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
 
-        - name: Extract version from main.py
-          id: version
-          run: |
-            VERSION=$(python -c "import re; m=re.search(r'version=\"([^\"]+)\"', open('main.py').read()); print(m.group(1))")
-            echo "semver=$VERSION" >> "$GITHUB_OUTPUT"
-            echo "Detected version: $VERSION"
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-        - name: Log in to GitHub Container Registry
-          uses: docker/login-action@v3
-          with:
-            registry: ghcr.io
-            username: ${{ github.actor }}
-            password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Docker image
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.version=${{ steps.version.outputs.semver }}" \
+            -t ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.semver }} \
+            -t ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.IMAGE_NAME }}:latest \
+            .
 
-        - name: Build Docker image
-          run: |
-            docker build \
-              --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
-              --label "org.opencontainers.image.revision=${{ github.sha }}" \
-              --label "org.opencontainers.image.version=${{ steps.version.outputs.semver }}" \
-              -t ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.semver }} \
-              -t ${{ env.IMAGE_NAME }}:${{ github.sha }} \
-              -t ${{ env.IMAGE_NAME }}:latest \
-              .
-
-        - name: Push to GHCR
-          run: |
-            docker push ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.semver }}
-            docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            docker push ${{ env.IMAGE_NAME }}:latest
+      - name: Push to GHCR
+        run: |
+          docker push ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.semver }}
+          docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.IMAGE_NAME }}:latest
