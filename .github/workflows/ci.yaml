@@ -1,47 +1,61 @@
-name: CI Pipeline
+name: CI — Test, Build, Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
-  unit-tests:
-    name: Unit Tests
+  unit-test:
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pytest-cov
+
       - name: Run unit tests
-        run: python -m pytest test_main.py
-  integration-tests:
-    name: Integration Tests
+        run: python -m pytest test_main.py -v --cov=main.py --cov-report=term-missing
+
+  integration-test:
+    name: Integration tests
+    needs: unit-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
+
       - name: Install test dependencies
         run: pip install pytest httpx
+
       - name: Build Docker image
         run: docker build -t fruits-api-test .
+
       - name: Start container
-        run: docker run -d -p 8080:8000 fruits-api-test && sleep 5
+        run: |
+          docker run -d --name fruits-api-test -p 8000:8000 fruits-api-test
+          sleep 5
+
       - name: Run integration tests
-        run: python -m pytest test_integration.py
+        run: python -m pytest test_integration.py -v
+
       - name: Stop container
+        if: always()
         run: docker rm -f fruits-api-test
+
   release:
     name: Tag & push to GHCR
-    needs: integration-tests
+    needs: integration-test
     runs-on: ubuntu-latest
     permissions:
       contents: read
