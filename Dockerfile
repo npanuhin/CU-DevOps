@@ -7,7 +7,8 @@ FROM python:3.12-slim AS runtime
 WORKDIR /app
 COPY --from=builder /app/deps /app/deps
 COPY main.py .
+COPY app ./app
 
-ENV PYTHONPATH=/app/deps
+ENV PYTHONPATH=/app:/app/deps
 EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
