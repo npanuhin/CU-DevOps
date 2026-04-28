@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars and edit before running `terraform apply`.
+# `terraform.tfvars` is gitignored — do not commit it.
+
+# Required: full image URI. The image must be in a public registry
+# (or you must add repository_credentials to the task definition).
+# Example for GHCR (make the package public in GitHub Packages settings):
+image_uri = "ghcr.io/<github-owner>/<repo>:latest"
+
+# Optional overrides:
+# region        = "us-east-1"
+# project_name  = "fruitapi"
+# desired_count = 1
