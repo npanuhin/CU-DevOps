@@ -18,3 +18,8 @@ class Fruit(BaseModel):
     name: str
     price: float = 0.0
     in_season: bool = True
+
+
+def fruit_response(fruit_id: int, data: dict) -> dict:
+    """Build the canonical fruit JSON: id + the data fields."""
+    return {"id": fruit_id, **data}
