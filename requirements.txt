@@ -19,3 +19,6 @@ watchfiles==1.1.1
 websockets==15.0.1
 pytest==8.3.4
 httpx==0.28.1
+SQLAlchemy==2.0.36
+PyMySQL==1.1.1
+cryptography==44.0.0
