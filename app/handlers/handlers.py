@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from app.models.fruit import FruitCreate, FruitUpdate
-from app.store.store import FruitStore, store as default_store
+from app.store.store import FruitStore
 
 
 def build_router(store: FruitStore) -> APIRouter:
@@ -51,5 +51,3 @@ def build_router(store: FruitStore) -> APIRouter:
 
     return router
 
-
-router = build_router(default_store)

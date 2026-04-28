@@ -28,6 +28,23 @@ jobs:
     name: Integration tests
     needs: unit-test
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpw
+          MYSQL_DATABASE: fruitapi
+          MYSQL_USER: fruitapi
+          MYSQL_PASSWORD: fruitapi
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpw"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -42,11 +59,19 @@ jobs:
         run: docker build -t fruits-api-test .
 
       - name: Start container
-        run: docker run -d --name fruits-api-test -p 8000:8000 fruits-api-test
+        run: |
+          docker run -d --name fruits-api-test \
+            --network host \
+            -e DB_HOST=127.0.0.1 \
+            -e DB_PORT=3306 \
+            -e DB_USER=fruitapi \
+            -e DB_PASSWORD=fruitapi \
+            -e DB_NAME=fruitapi \
+            fruits-api-test
 
       - name: Wait for app to be ready
         run: |
-          for i in {1..30}; do
+          for i in {1..60}; do
             curl -fs http://localhost:8000/health && break
             sleep 1
           done
@@ -55,6 +80,10 @@ jobs:
         env:
           BASE_URL: http://localhost:8000
         run: python -m pytest tests -v
+
+      - name: Show app logs on failure
+        if: failure()
+        run: docker logs fruits-api-test || true
 
       - name: Stop container
         if: always()

@@ -1,12 +1,24 @@
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 
 from app.models.fruit import FruitCreate, FruitUpdate
 from app.store.store import FruitStore
 
 
+def _make_engine():
+    return create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+
+
 @pytest.fixture()
 def store() -> FruitStore:
-    s = FruitStore()
+    s = FruitStore(engine=_make_engine())
+    s.init_schema()
     s.seed_defaults()
     return s
 
@@ -67,5 +79,6 @@ def test_cheapest_returns_lowest_price(store: FruitStore) -> None:
 
 
 def test_cheapest_returns_none_when_empty() -> None:
-    s = FruitStore()
+    s = FruitStore(engine=_make_engine())
+    s.init_schema()
     assert s.cheapest() is None

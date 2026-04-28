@@ -2,15 +2,30 @@
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 
 from app.handlers.handlers import build_router
 from app.store.store import FruitStore
 
 
+def _make_store(seed: bool = True) -> FruitStore:
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+    s = FruitStore(engine=engine)
+    s.init_schema()
+    if seed:
+        s.seed_defaults()
+    return s
+
+
 @pytest.fixture()
 def client() -> TestClient:
-    store = FruitStore()
-    store.seed_defaults()
+    store = _make_store()
     app = FastAPI()
     app.include_router(build_router(store))
     return TestClient(app)
@@ -51,7 +66,7 @@ def test_delete_404_when_missing(client: TestClient) -> None:
 
 
 def test_cheapest_404_when_store_empty() -> None:
-    empty_store = FruitStore()
+    empty_store = _make_store(seed=False)
     app = FastAPI()
     app.include_router(build_router(empty_store))
     response = TestClient(app).get("/fruits/cheapest")
