@@ -56,3 +56,31 @@ def test_cheapest_404_when_store_empty() -> None:
     app.include_router(build_router(empty_store))
     response = TestClient(app).get("/fruits/cheapest")
     assert response.status_code == 404
+
+
+def test_list_fruits_in_season_true(client: TestClient) -> None:
+    response = client.get("/fruits", params={"in_season": "true"})
+    assert response.status_code == 200
+    fruits = response.json()
+    assert all(f["in_season"] is True for f in fruits)
+    assert {f["name"] for f in fruits} == {"Apple", "Banana"}
+
+
+def test_list_fruits_in_season_false(client: TestClient) -> None:
+    response = client.get("/fruits", params={"in_season": "false"})
+    assert response.status_code == 200
+    fruits = response.json()
+    assert all(f["in_season"] is False for f in fruits)
+    assert [f["name"] for f in fruits] == ["Orange"]
+
+
+def test_post_missing_name_returns_422(client: TestClient) -> None:
+    response = client.post("/fruits", json={"price": 1.0, "in_season": True})
+    assert response.status_code == 422
+
+
+def test_post_wrong_type_for_price_returns_422(client: TestClient) -> None:
+    response = client.post(
+        "/fruits", json={"name": "Mango", "price": "not-a-number", "in_season": True}
+    )
+    assert response.status_code == 422

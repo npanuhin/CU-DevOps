@@ -42,14 +42,18 @@ jobs:
         run: docker build -t fruits-api-test .
 
       - name: Start container
-        run: |
-          docker run -d --name fruits-api-test -p 8000:8000 fruits-api-test
-          sleep 5
+        run: docker run -d --name fruits-api-test -p 8000:8000 fruits-api-test
 
-      - name: Install runtime dependencies for integration tests
-        run: pip install -r requirements.txt
+      - name: Wait for app to be ready
+        run: |
+          for i in {1..30}; do
+            curl -fs http://localhost:8000/health && break
+            sleep 1
+          done
 
       - name: Run integration tests
+        env:
+          BASE_URL: http://localhost:8000
         run: python -m pytest tests -v
 
       - name: Stop container

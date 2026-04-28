@@ -1,6 +1,6 @@
 from typing import Iterator
 
-from app.models.fruit import FruitCreate, FruitUpdate
+from app.models.fruit import FruitCreate, FruitUpdate, fruit_response
 
 
 class FruitStore:
@@ -24,7 +24,7 @@ class FruitStore:
         self._next_id = 1
 
     def list(self, in_season: bool | None = None) -> list[dict]:
-        items = [{"id": i, **data} for i, data in self._items.items()]
+        items = [fruit_response(i, data) for i, data in self._items.items()]
         if in_season is not None:
             items = [f for f in items if f["in_season"] is in_season]
         return items
@@ -33,14 +33,14 @@ class FruitStore:
         data = self._items.get(fruit_id)
         if data is None:
             return None
-        return {"id": fruit_id, **data}
+        return fruit_response(fruit_id, data)
 
     def create(self, body: FruitCreate) -> dict:
         fruit_id = self._next_id
         self._next_id += 1
         data = {"name": body.name, "price": body.price, "in_season": body.in_season}
         self._items[fruit_id] = data
-        return {"id": fruit_id, **data}
+        return fruit_response(fruit_id, data)
 
     def update(self, fruit_id: int, body: FruitUpdate) -> dict | None:
         if fruit_id not in self._items:
@@ -53,7 +53,7 @@ class FruitStore:
         if body.in_season is not None:
             data["in_season"] = body.in_season
         self._items[fruit_id] = data
-        return {"id": fruit_id, **data}
+        return fruit_response(fruit_id, data)
 
     def delete(self, fruit_id: int) -> bool:
         if fruit_id not in self._items:
@@ -65,7 +65,7 @@ class FruitStore:
         if not self._items:
             return None
         cheapest_id = min(self._items.keys(), key=lambda i: self._items[i]["price"])
-        return {"id": cheapest_id, **self._items[cheapest_id]}
+        return fruit_response(cheapest_id, self._items[cheapest_id])
 
     def __len__(self) -> int:
         return len(self._items)

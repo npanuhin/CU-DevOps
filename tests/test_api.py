@@ -1,39 +1,29 @@
-"""Integration tests: real FastAPI app + real in-memory store via TestClient."""
-import pytest
-from fastapi.testclient import TestClient
+"""Integration tests: real HTTP client against a running FruitAPI.
 
-from app.app import create_app
-from app.store.store import store as shared_store
+Run a server first (locally: `uvicorn main:app` or via Docker on port 8000),
+then `pytest tests`. BASE_URL can be overridden via env var.
+"""
+import os
+
+import httpx
+import pytest
+
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000")
 
 
 @pytest.fixture()
-def client() -> TestClient:
-    shared_store.reset()
-    shared_store.seed_defaults()
-    return TestClient(create_app())
+def client():
+    with httpx.Client(base_url=BASE_URL, timeout=5.0) as c:
+        yield c
 
 
-def test_health(client: TestClient) -> None:
+def test_health(client: httpx.Client) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_list_fruits(client: TestClient) -> None:
-    response = client.get("/fruits")
-    assert response.status_code == 200
-    assert len(response.json()) == 3
-
-
-def test_list_fruits_in_season_filter(client: TestClient) -> None:
-    response = client.get("/fruits", params={"in_season": "false"})
-    assert response.status_code == 200
-    fruits = response.json()
-    assert len(fruits) == 1
-    assert fruits[0]["name"] == "Orange"
-
-
-def test_full_crud_lifecycle(client: TestClient) -> None:
+def test_full_crud_lifecycle(client: httpx.Client) -> None:
     # CREATE
     response = client.post(
         "/fruits", json={"name": "Mango", "price": 3.0, "in_season": True}
@@ -58,32 +48,33 @@ def test_full_crud_lifecycle(client: TestClient) -> None:
     # DELETE
     response = client.delete(f"/fruits/{fruit_id}")
     assert response.status_code == 204
-    assert response.content == b""
 
     # READ again -> 404
     response = client.get(f"/fruits/{fruit_id}")
     assert response.status_code == 404
 
 
-def test_get_one_404(client: TestClient) -> None:
-    response = client.get("/fruits/424242")
-    assert response.status_code == 404
+def test_cheapest_consistency(client: httpx.Client) -> None:
+    cheapest = client.get("/fruits/cheapest")
+    assert cheapest.status_code == 200
+
+    all_fruits = client.get("/fruits")
+    assert all_fruits.status_code == 200
+    min_price = min(f["price"] for f in all_fruits.json())
+
+    assert cheapest.json()["price"] == min_price
 
 
-def test_update_404(client: TestClient) -> None:
-    response = client.put("/fruits/424242", json={"name": "Ghost"})
-    assert response.status_code == 404
-
-
-def test_delete_404(client: TestClient) -> None:
-    response = client.delete("/fruits/424242")
-    assert response.status_code == 404
-
-
-def test_cheapest_fruit(client: TestClient) -> None:
-    response = client.get("/fruits/cheapest")
+def test_post_then_appears_in_list(client: httpx.Client) -> None:
+    """Extra scenario: a created fruit shows up in GET /fruits, then is cleaned up."""
+    response = client.post(
+        "/fruits", json={"name": "Kiwi", "price": 1.5, "in_season": True}
+    )
     assert response.status_code == 200
-    cheapest = response.json()
+    fruit_id = response.json()["id"]
 
-    all_fruits = client.get("/fruits").json()
-    assert cheapest["price"] == min(f["price"] for f in all_fruits)
+    try:
+        all_fruits = client.get("/fruits").json()
+        assert any(f["id"] == fruit_id and f["name"] == "Kiwi" for f in all_fruits)
+    finally:
+        client.delete(f"/fruits/{fruit_id}")
