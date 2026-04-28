@@ -1,0 +1,20 @@
+# Terraform local state and provider plugins
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Local override files (often contain secrets / personal config)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI configuration files
+.terraformrc
+terraform.rc
+
+# Variable files that may contain secrets
+*.auto.tfvars
+*.auto.tfvars.json
